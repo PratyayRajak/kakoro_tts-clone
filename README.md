@@ -1,172 +1,90 @@
-# Voice Cloning for Kokoro TTS
+# Kokoro TTS Voice Cloning
 
-Voice cloning system using random walk optimization to generate custom voice style tensors for the Kokoro text-to-speech system.
+Voice cloning system using random walk optimization for Kokoro text-to-speech.
 
 Based on [kvoicewalk](https://github.com/RobViren/kvoicewalk) by Rob Viren.
 
-## How It Works
-
-This tool uses a **random walk algorithm** to explore Kokoro's voice tensor space, finding tensors that produce speech similar to a target voice without retraining the model.
-
-### Scoring System
-
-The optimization uses three metrics combined via weighted harmonic mean:
-
-1. **Target Similarity (48%)** - How similar the generated audio sounds to the target voice (using Resemblyzer speaker embeddings)
-2. **Self-Similarity (50%)** - How consistent the voice is across different text inputs (prevents quality degradation)
-3. **Feature Similarity (2%)** - Audio feature comparison to prevent convergence on perceptually poor results
-
-## Installation
-
-### Requirements
-- Python 3.10-3.12
-- CUDA-capable GPU recommended (but CPU works)
-
-### Setup
+## Quick Start
 
 ```bash
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
-# source venv/bin/activate  # Linux/Mac
+# 1. Clone the repo
+git clone https://github.com/PratyayRajak/kakoro_tts-clone.git
+cd kakoro_tts-clone
 
-# Install dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# Optional: Install faster-whisper for auto-transcription
-pip install faster-whisper
+# 3. Download voice files (REQUIRED - ~54 voice tensors)
+python download_voices.py
+
+# 4. Run the web UI
+python app.py
 ```
 
-### Download Kokoro Voice Tensors
+Then open http://localhost:7860 in your browser.
 
-You need the Kokoro voice tensors to use as a starting population:
+## Speed Modes
 
-```bash
-# Option 1: Download from HuggingFace
-pip install huggingface_hub
-python -c "from huggingface_hub import snapshot_download; snapshot_download('hexgrad/Kokoro-82M', local_dir='./kokoro_model')"
+| Mode | Time | Description |
+|------|------|-------------|
+| **Quick Match** | ~30 sec | Find best matching stock voice |
+| **Light** | ~1 min | Light optimization (100 steps) |
+| **Standard** | ~2-3 min | Better quality (300 steps) |
+| **Deep** | ~5+ min | Best quality (500+ steps) |
 
-# Copy voice tensors to voices folder
-# Voice tensors are .pt files in the model
-```
+## How It Works
 
-Or manually download voice `.pt` files and place them in the `voices/` folder.
+1. Upload a target audio file (10-30 seconds of clear speech)
+2. Enter the text spoken in the audio
+3. Select a cloning mode
+4. Click "Start Cloning"
+5. Test your cloned voice in the "Test Voice" tab
 
-## Usage
+The system uses **Resemblyzer** speaker embeddings to find and optimize voice tensors that sound similar to your target voice.
 
-### Basic Voice Cloning
+## Requirements
 
-```bash
-# Clone a voice from an audio sample
-python main.py --target_audio ./in/target.wav --target_text "The text spoken in the audio"
-
-# With interpolation search for better starting point
-python main.py --target_audio ./in/target.wav --target_text "Hello world" --interpolate_start
-
-# Auto-transcribe target audio (requires faster-whisper)
-python main.py --target_audio ./in/target.wav --transcribe_start
-```
-
-### Test a Generated Voice
-
-```bash
-python main.py --test_voice ./out/cloned_voice_final.pt --target_text "Test this voice"
-```
-
-### Audio Preparation
-
-Target audio should be:
-- **Format**: WAV (mono, 24kHz)
-- **Duration**: 20-30 seconds recommended
-- **Quality**: Clear speech, minimal background noise
-
-```bash
-# Convert audio to correct format (using ffmpeg)
-ffmpeg -i input.mp3 -ar 24000 -ac 1 output.wav
-
-# Or use built-in conversion
-python main.py --convert_audio input.mp3
-```
-
-## Command Line Options
-
-### Operation Modes
-- `--target_audio PATH` - Target audio file to clone
-- `--target_text TEXT` - Text content of target audio (or path to .txt file)
-- `--test_voice PATH` - Test a voice tensor
-
-### Random Walk Options
-- `--interpolate_start` - Use interpolation search for better starting voices
-- `--step_limit N` - Maximum iterations (default: 10000)
-- `--population_limit N` - Initial voice candidates (default: 10)
-- `--starting_voice PATH` - Specific voice tensor to start from
-- `--voice_folder PATH` - Folder with voice tensors (default: ./voices)
-
-### Output Options
-- `--output_name NAME` - Base name for output files
-
-### Utility Options
-- `--transcribe_start` - Auto-transcribe target audio
-- `--convert_audio PATH` - Convert audio to 24kHz mono WAV
-- `--export_bin PATH` - Export voices to compressed binary
+- Python 3.10-3.12
+- ~500MB disk space for voice files
+- GPU recommended but CPU works
 
 ## Project Structure
 
 ```
-tts/
+├── app.py                  # Web UI (Gradio)
 ├── main.py                 # CLI interface
+├── download_voices.py      # Downloads 54 Kokoro voice tensors
 ├── requirements.txt        # Dependencies
 ├── utilities/
-│   ├── path_router.py      # Directory configuration
 │   ├── speech_generator.py # Kokoro TTS wrapper
-│   ├── fitness_scorer.py   # Hybrid similarity scoring
+│   ├── fitness_scorer.py   # Voice similarity scoring
 │   ├── voice_generator.py  # Tensor mutation
-│   ├── initial_selector.py # Voice selection & interpolation
-│   ├── audio_processor.py  # Audio conversion & transcription
-│   └── kvoicewalk.py       # Random walk algorithm
-├── voices/                 # Voice tensor files (.pt)
+│   ├── audio_processor.py  # Audio conversion
+│   └── ...
+├── voices/                 # Voice tensors (.pt) - downloaded
 ├── in/                     # Input audio files
-├── out/                    # Output files
-├── interpolated/           # Interpolated voice tensors
-└── texts/                  # Transcription files
+└── out/                    # Cloned voice outputs
 ```
 
-## Expected Results
+## CLI Usage
 
-- **Baseline**: ~70% similarity with best stock voice
-- **After optimization**: ~90% similarity
-- **Typical improvements**: 20+ percentage points
+```bash
+# Clone a voice
+python main.py --target_audio ./in/target.wav --target_text "Hello world"
 
-Results occupy an "uncanny valley" of similarity rather than producing exact clones, due to limitations in Kokoro's architecture.
+# Test a cloned voice
+python main.py --test_voice ./out/my_voice_cloned.pt --target_text "Test"
+```
 
-## Performance Tips
+## Tips
 
-1. **Use interpolation start** (`--interpolate_start`) for better initial positions
-2. **Longer target audio** (20-30 seconds) gives better results
-3. **Clear speech** without music or background noise
-4. **Run multiple sessions** - results have high variance
-5. **GPU acceleration** significantly speeds up the process
-
-## Troubleshooting
-
-### "No voice files found"
-Download Kokoro voice tensors and place `.pt` files in the `voices/` folder.
-
-### "CUDA out of memory"
-- Reduce batch sizes or use CPU
-- Close other GPU applications
-
-### Poor similarity scores
-- Ensure target audio is clear and properly formatted
-- Try different starting voices with `--starting_voice`
-- Use `--interpolate_start` for better initial positions
-
-## License
-
-MIT License - See original [kvoicewalk](https://github.com/RobViren/kvoicewalk) repository.
+- **Start with Quick Match** - often good enough!
+- Use clear audio without background noise
+- 10-30 seconds of speech works best
+- Results are in an "uncanny valley" - similar but not identical
 
 ## Credits
 
-- Original implementation: [Rob Viren](https://github.com/RobViren/kvoicewalk)
-- Kokoro TTS: [hexgrad](https://huggingface.co/hexgrad/Kokoro-82M)
-- Resemblyzer: [resemble-ai](https://github.com/resemble-ai/Resemblyzer)
+- [kvoicewalk](https://github.com/RobViren/kvoicewalk) - Original implementation
+- [Kokoro TTS](https://huggingface.co/hexgrad/Kokoro-82M) - TTS model
+- [Resemblyzer](https://github.com/resemble-ai/Resemblyzer) - Speaker embeddings

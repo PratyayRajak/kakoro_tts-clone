@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific - large files
+voices/*.pt
+out/
+in/
+interpolated/
+texts/
+kokoro_cache/
+*.wav
+*.mp3
+
+# Temp files
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# Model cache
+.cache/
